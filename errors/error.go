@@ -85,8 +85,7 @@ type IllegalParameterError struct {
 // NewIllegalParameterError 会创建一个IllegalParameterError类型的实例。
 func NewIllegalParameterError(errMsg string) IllegalParameterError {
 	return IllegalParameterError{
-		msg: fmt.Sprintf("illegal parameter: %s",
-			strings.TrimSpace(errMsg)),
+		msg: fmt.Sprintf("illegal parameter: %s", strings.TrimSpace(errMsg)),
 	}
 }
 

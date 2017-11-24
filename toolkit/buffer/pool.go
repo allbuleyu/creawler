@@ -168,8 +168,62 @@ func (pool *myPool) Get() (datum interface{}, err error) {
 	if pool.Closed() {
 		return nil, ErrClosedBufferPool
 	}
+	var count uint32
+	maxCount := pool.bufferNumber * 5
 
-	return nil, nil
+	for buf := range pool.bufCh {
+		datum, err = pool.getData(buf, &count, maxCount)
+
+		if datum != nil && err == nil {
+			break
+		}
+	}
+
+	return
+}
+
+func (pool *myPool) getData(buf Buffer, count *uint32, maxCount uint32) (datum interface{}, err error) {
+	if pool.Closed() {
+		return nil, ErrClosedBufferPool
+	}
+
+	defer func() {
+		// 如果尝试从缓冲器获取数据的失败次数达到阈值，
+		// 同时当前缓冲器已空且池中缓冲器的数量大于1，
+		// 那么就直接关掉当前缓冲器，并不归还给池。
+		if *count >= maxCount && pool.bufferNumber > 1 && buf.Len() == 0 {
+			buf.Close()
+			atomic.AddUint32(&pool.bufferNumber, ^uint32(1-1))
+
+			*count = 0
+
+			return
+		}
+
+		pool.rwlock.RLock()
+		if pool.Closed() {
+			atomic.AddUint32(&pool.bufferNumber, ^uint32(1-1))
+			err = ErrClosedBufferPool
+		}else {
+			pool.bufCh <- buf
+		}
+		pool.rwlock.RUnlock()
+	}()
+
+
+	datum, err = buf.Get()
+	if datum != nil {
+		atomic.AddUint64(&pool.total, ^uint64(1-1))
+		return
+	}
+
+	if nil != nil {
+		return
+	}
+	// 若因缓冲器已空未取出数据就递增计数。
+	(*count)++
+
+	return
 }
 
 
